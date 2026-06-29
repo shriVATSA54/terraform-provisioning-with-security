@@ -1,0 +1,156 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+- group: aws-terraform-secrets
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+
+# -----------------------------
+# Stage 1 - Terraform Init
+# -----------------------------
+- stage: Init
+  jobs:
+  - job: TerraformInit
+
+    steps:
+
+    - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - script: |
+        terraform init
+      displayName: Terraform Init
+
+# -----------------------------
+# Stage 2 - Validate
+# -----------------------------
+- stage: Validate
+
+  dependsOn: Init
+
+  jobs:
+
+  - job: TerraformValidate
+
+    steps:
+
+    - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - script: |
+        terraform validate
+      displayName: Terraform Validate
+
+# -----------------------------
+# Stage 3 - Checkov Security Scan
+# -----------------------------
+- stage: SecurityScan
+
+  dependsOn: Validate
+
+  jobs:
+
+  - job: Checkov
+
+    steps:
+
+    - checkout: self
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install checkov
+
+        checkov -d .
+      displayName: Run Checkov
+
+# -----------------------------
+# Stage 4 - Terraform Plan
+# -----------------------------
+- stage: Plan
+
+  dependsOn: SecurityScan
+
+  jobs:
+
+  - job: TerraformPlan
+
+    steps:
+
+    - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - script: |
+        terraform init
+
+        terraform plan \
+          -out=tfplan
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_DEFAULT_REGION: $(AWS_DEFAULT_REGION)
+
+      displayName: Terraform Plan
+
+    - publish: tfplan
+      artifact: terraformPlan
+
+# -----------------------------
+# Stage 5 - Apply
+# -----------------------------
+- stage: Apply
+
+  dependsOn: Plan
+
+  jobs:
+
+  - deployment: TerraformApply
+
+    environment: Production
+
+    strategy:
+
+      runOnce:
+
+        deploy:
+
+          steps:
+
+          - checkout: self
+
+          - download: current
+            artifact: terraformPlan
+
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: latest
+
+          - script: |
+              terraform init
+
+              terraform apply tfplan
+            env:
+              AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+              AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+              AWS_DEFAULT_REGION: $(AWS_DEFAULT_REGION)
+
+            displayName: Terraform Apply

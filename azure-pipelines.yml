@@ -165,9 +165,8 @@ stages:
           - script: |
               terraform init
 
-              terraform apply \
-              tfplan \
-              -var-file=$(tfvars.secureFilePath)
+              terraform apply tfplan
+
 
             env:
               AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)

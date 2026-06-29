@@ -2,7 +2,9 @@
 variable "vpc_id" {
   type = string
 }
-
+ variable "allow_80" {
+  type = list(string)
+}
 variable "subnet_ids" {
   description = "Public subnet IDs for ALB (min 2 required by AWS)"
   type        = list(string)

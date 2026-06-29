@@ -32,7 +32,9 @@ variable "ami_id" {
   description = "AMI ID for the launch template (e.g. Amazon Linux 2023)"
   type        = string
 }
-
+variable "allow_80"{
+  type=list(string)
+}
 variable "key_name" {
   description = "EC2 key pair name for SSH access (leave empty to disable)"
   type        = string

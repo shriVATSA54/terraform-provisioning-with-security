@@ -10,7 +10,6 @@ pr:
 
 variables:
 - group: aws-terraform-secrets
-- group: aws-prod-secrets
 
 
 pool:

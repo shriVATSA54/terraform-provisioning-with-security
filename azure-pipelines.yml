@@ -125,7 +125,6 @@ stages:
 
   - deployment: TerraformApply
 
-    environment: Production
 
     strategy:
 

@@ -60,6 +60,7 @@ stages:
         terraformVersion: latest
 
     - script: |
+        terraform init
         terraform validate
       displayName: Terraform Validate
 

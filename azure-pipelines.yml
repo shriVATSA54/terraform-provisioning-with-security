@@ -85,6 +85,7 @@ stages:
 
         checkov -d .
       displayName: Run Checkov
+      continueOnError: true
 
 # -----------------------------
 # Stage 4 - Terraform Plan

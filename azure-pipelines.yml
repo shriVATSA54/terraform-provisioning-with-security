@@ -165,7 +165,7 @@ stages:
           - script: |
               terraform init
 
-              terraform apply tfplan
+              terraform apply $(Pipeline.Workspace)/terraformPlan/tfplan
 
 
             env:

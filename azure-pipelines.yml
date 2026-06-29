@@ -10,6 +10,8 @@ pr:
 
 variables:
 - group: aws-terraform-secrets
+- group: aws-prod-secrets
+
 
 pool:
   vmImage: ubuntu-latest
@@ -102,6 +104,11 @@ stages:
 
     - checkout: self
 
+    - task: DownloadSecureFile@1
+      name: tfvars
+      inputs:
+        secureFile: 'prod.tfvars'
+
     - task: TerraformInstaller@1
       inputs:
         terraformVersion: latest
@@ -110,7 +117,8 @@ stages:
         terraform init
 
         terraform plan \
-          -out=tfplan
+          -out=tfplan \
+          -var-file=$(tfvars.secureFilePath) 
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
@@ -143,6 +151,10 @@ stages:
           steps:
 
           - checkout: self
+          - task: DownloadSecureFile@1
+            name: tfvars
+            inputs:
+              secureFile: 'prod.tfvars'
 
           - download: current
             artifact: terraformPlan
@@ -154,7 +166,9 @@ stages:
           - script: |
               terraform init
 
-              terraform apply tfplan
+              terraform apply tfplan \
+              -var-file=$(tfvars.secureFilePath)
+
             env:
               AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
               AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)

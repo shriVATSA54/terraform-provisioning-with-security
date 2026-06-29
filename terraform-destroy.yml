@@ -2,6 +2,8 @@ trigger: none
 
 pool:
   vmImage: ubuntu-latest
+variables:
+- group: aws-terraform-secrets
 
 stages:
 

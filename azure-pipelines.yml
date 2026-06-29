@@ -165,7 +165,8 @@ stages:
           - script: |
               terraform init
 
-              terraform apply tfplan \
+              terraform apply \
+              tfplan \
               -var-file=$(tfvars.secureFilePath)
 
             env:

@@ -1,0 +1,50 @@
+# This Pipeline uses OIDC
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  AWS_REGION: 'ap-south-1'
+  awsServiceConnection: 'aws-oidc'   
+
+stages:
+
+- stage: Destroy
+
+  jobs:
+
+  - deployment: TerraformDestroy
+
+    environment: Production
+
+    strategy:
+
+      runOnce:
+
+        deploy:
+
+          steps:
+
+          - checkout: self
+
+          - task: DownloadSecureFile@1
+            name: tfvars
+            inputs:
+              secureFile: terraform.tfvars
+
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: 1.15.4
+
+          - task: AWSShellScript@1
+            displayName: Terraform Destroy
+            inputs:
+              awsCredentials: '$(awsServiceConnection)'
+              regionName: '$(AWS_REGION)'
+              scriptType: 'inline'
+              inlineScript: |
+                terraform init
+
+                terraform destroy --auto-approve \
+                  -var-file=$(tfvars.secureFilePath)

@@ -21,7 +21,7 @@ stages:
           - task: AWSCLI@1
             displayName: 'Validate AWS OIDC Authentication'
             inputs:
-              awsCredentials: 'aws-odic'
+              awsCredentials: 'aws-oidc'
               regionName: 'ap-south-1'
               awsCommand: 'sts'
               awsSubCommand: 'get-caller-identity'

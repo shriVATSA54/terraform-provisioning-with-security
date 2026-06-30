@@ -31,7 +31,7 @@ stages:
 
     - task: TerraformInstaller@1
       inputs:
-        terraformVersion: latest
+        terraformVersion: 1.15.4
 
     - task: AWSShellScript@1
       displayName: Terraform Init
@@ -55,7 +55,7 @@ stages:
 
     - task: TerraformInstaller@1
       inputs:
-        terraformVersion: latest
+        terraformVersion: 1.15.4
 
     - task: AWSShellScript@1
       displayName: Terraform Validate
@@ -103,7 +103,7 @@ stages:
 
     - task: TerraformInstaller@1
       inputs:
-        terraformVersion: latest
+        terraformVersion: 1.15.4
 
     - task: AWSShellScript@1
       displayName: Terraform Plan
@@ -145,7 +145,7 @@ stages:
 
           - task: TerraformInstaller@1
             inputs:
-              terraformVersion: latest
+              terraformVersion: 1.15.4
 
           - task: AWSShellScript@1
             displayName: Terraform Apply
@@ -155,4 +155,4 @@ stages:
               scriptType: 'inline'
               inlineScript: |
                 terraform init
-                terraform apply $(Pipeline.Workspace)/terraformPlan/tfplan
+                terraform apply $(Pipeline.Workspace)/terraformPlan/tfplan --auto-approve

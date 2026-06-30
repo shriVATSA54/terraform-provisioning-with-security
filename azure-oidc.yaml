@@ -5,23 +5,154 @@ trigger:
     include:
       - main
 
+pr:
+  branches:
+    include:
+      - main
+
 variables:
-  foldervalue: 'AWS-IAC'
-  aws.rolecredential.maxduration: '3600'
+  AWS_REGION: 'ap-south-1'
+  awsServiceConnection: 'aws-oidc'   # match your actual service connection name
+
+pool:
+  vmImage: ubuntu-latest
 
 stages:
-  - stage: ValidateAWSOIDC
-    displayName: 'Validate AWS OIDC Authentication'
 
-    jobs:
-      - job: ValidateOIDC
-        displayName: 'Validate AWS OIDC Connection'
+# -----------------------------
+# Stage 1 - Terraform Init
+# -----------------------------
+- stage: Init
+  jobs:
+  - job: TerraformInit
+    steps:
 
-        steps:
-          - task: AWSCLI@1
-            displayName: 'Validate AWS OIDC Authentication'
+    - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - task: AWSShellScript@1
+      displayName: Terraform Init
+      inputs:
+        awsCredentials: '$(awsServiceConnection)'
+        regionName: '$(AWS_REGION)'
+        scriptType: 'inline'
+        inlineScript: |
+          terraform init
+
+# -----------------------------
+# Stage 2 - Validate
+# -----------------------------
+- stage: Validate
+  dependsOn: Init
+  jobs:
+  - job: TerraformValidate
+    steps:
+
+    - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - task: AWSShellScript@1
+      displayName: Terraform Validate
+      inputs:
+        awsCredentials: '$(awsServiceConnection)'
+        regionName: '$(AWS_REGION)'
+        scriptType: 'inline'
+        inlineScript: |
+          terraform init
+          terraform validate
+
+# -----------------------------
+# Stage 3 - Checkov Security Scan
+# -----------------------------
+- stage: SecurityScan
+  dependsOn: Validate
+  jobs:
+  - job: Checkov
+    steps:
+
+    - checkout: self
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install checkov
+        checkov -d .
+      displayName: Run Checkov
+      continueOnError: true
+
+# -----------------------------
+# Stage 4 - Terraform Plan
+# -----------------------------
+- stage: Plan
+  dependsOn: SecurityScan
+  jobs:
+  - job: TerraformPlan
+    steps:
+
+    - checkout: self
+
+    - task: DownloadSecureFile@1
+      name: tfvars
+      inputs:
+        secureFile: 'terraform.tfvars'
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - task: AWSShellScript@1
+      displayName: Terraform Plan
+      inputs:
+        awsCredentials: '$(awsServiceConnection)'
+        regionName: '$(AWS_REGION)'
+        scriptType: 'inline'
+        inlineScript: |
+          terraform init
+          terraform plan \
+            -out=tfplan \
+            -var-file=$(tfvars.secureFilePath)
+
+    - publish: tfplan
+      artifact: terraformPlan
+
+# -----------------------------
+# Stage 5 - Apply
+# -----------------------------
+- stage: Apply
+  dependsOn: Plan
+  jobs:
+  - deployment: TerraformApply
+    environment: Production
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - checkout: self
+
+          - task: DownloadSecureFile@1
+            name: tfvars
             inputs:
-              awsCredentials: 'aws-oidc'
-              regionName: 'ap-south-1'
-              awsCommand: 'sts'
-              awsSubCommand: 'get-caller-identity'
+              secureFile: 'terraform.tfvars'
+
+          - download: current
+            artifact: terraformPlan
+
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: latest
+
+          - task: AWSShellScript@1
+            displayName: Terraform Apply
+            inputs:
+              awsCredentials: '$(awsServiceConnection)'
+              regionName: '$(AWS_REGION)'
+              scriptType: 'inline'
+              inlineScript: |
+                terraform init
+                terraform apply $(Pipeline.Workspace)/terraformPlan/tfplan

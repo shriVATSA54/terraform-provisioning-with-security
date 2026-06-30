@@ -1,3 +1,4 @@
+# This Pipeline uses OIDC
 name: AWS-IAC-ADO-Pipeline
 
 trigger:

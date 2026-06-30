@@ -155,4 +155,4 @@ stages:
               scriptType: 'inline'
               inlineScript: |
                 terraform init
-                terraform apply $(Pipeline.Workspace)/terraformPlan/tfplan --auto-approve
+                terraform apply $(Pipeline.Workspace)/terraformPlan/tfplan 

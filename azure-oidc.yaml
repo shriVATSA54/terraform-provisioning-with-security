@@ -1,10 +1,7 @@
 # This Pipeline uses OIDC
 name: AWS-IAC-ADO-Pipeline
 
-trigger:
-  branches:
-    include:
-      - main
+trigger: none
 
 pr:
   branches:

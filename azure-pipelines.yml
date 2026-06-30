@@ -1,9 +1,6 @@
 # This Pipeline uses Long-Lived Accesskeys to work 
  
-trigger:
-  branches:
-    include:
-      - main
+trigger: none
 
 pr:
   branches:

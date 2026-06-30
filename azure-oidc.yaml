@@ -1,74 +1,27 @@
-trigger:
-- main
+name: AWS-IAC-ADO-Pipeline
 
-pool:
-  vmImage: 'ubuntu-latest'
+trigger:
+  branches:
+    include:
+      - main
 
 variables:
-  AWS_REGION: 'ap-south-1'
-  AWS_ROLE_ARN: 'arn:aws:iam::306005333932:role/terraform-azdo-oidc-role'
-  serviceConnectionName: 'aws-oidc-federation'
+  foldervalue: 'AWS-IAC'
+  aws.rolecredential.maxduration: '3600'
 
-steps:
-- bash: |
-    set -e
+stages:
+  - stage: ValidateAWSOIDC
+    displayName: 'Validate AWS OIDC Authentication'
 
-    ORG_URL="$(System.CollectionUri)"
-    PROJECT_ID="$(System.TeamProjectId)"
-    PLAN_ID="$(System.PlanId)"
-    JOB_ID="$(System.JobId)"
-    HUB="$(System.HostType)"
+    jobs:
+      - job: ValidateOIDC
+        displayName: 'Validate AWS OIDC Connection'
 
-    # Look up the service connection ID by name
-    SC_ID=$(curl -s -u ":$(System.AccessToken)" \
-      "$ORG_URL$PROJECT_ID/_apis/serviceendpoint/endpoints?endpointNames=$(serviceConnectionName)&api-version=7.1" \
-      | jq -r '.value[0].id')
-
-    if [ -z "$SC_ID" ] || [ "$SC_ID" == "null" ]; then
-      echo "##vso[task.logissue type=error]Could not resolve service connection ID for $(serviceConnectionName)"
-      exit 1
-    fi
-
-    echo "Resolved service connection ID: $SC_ID"
-
-    # Request the OIDC token tied to this job/plan/service connection
-    OIDC_RESPONSE=$(curl -s -X POST \
-      -u ":$(System.AccessToken)" \
-      -H "Content-Type: application/json" \
-      "$ORG_URL$PROJECT_ID/_apis/distributedtask/hubs/$HUB/plans/$PLAN_ID/jobs/$JOB_ID/oidctoken?serviceConnectionId=$SC_ID&api-version=7.1-preview.1")
-
-    ID_TOKEN=$(echo "$OIDC_RESPONSE" | jq -r '.oidcToken')
-
-    if [ -z "$ID_TOKEN" ] || [ "$ID_TOKEN" == "null" ]; then
-      echo "##vso[task.logissue type=error]Failed to retrieve OIDC token. Response: $OIDC_RESPONSE"
-      exit 1
-    fi
-
-    echo "##vso[task.setvariable variable=OIDC_TOKEN;issecret=true]$ID_TOKEN"
-  displayName: 'Get Azure DevOps OIDC token'
-  env:
-    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-
-- bash: |
-    set -e
-    CREDS=$(aws sts assume-role-with-web-identity \
-      --role-arn "$(AWS_ROLE_ARN)" \
-      --role-session-name "azdo-pipeline-$(Build.BuildId)" \
-      --web-identity-token "$(OIDC_TOKEN)" \
-      --duration-seconds 3600)
-
-    echo "##vso[task.setvariable variable=AWS_ACCESS_KEY_ID;issecret=true]$(echo $CREDS | jq -r '.Credentials.AccessKeyId')"
-    echo "##vso[task.setvariable variable=AWS_SECRET_ACCESS_KEY;issecret=true]$(echo $CREDS | jq -r '.Credentials.SecretAccessKey')"
-    echo "##vso[task.setvariable variable=AWS_SESSION_TOKEN;issecret=true]$(echo $CREDS | jq -r '.Credentials.SessionToken')"
-  displayName: 'Assume AWS role via web identity'
-
-- script: |
-    terraform init
-    terraform plan -out=tfplan
-    terraform apply -auto-approve tfplan
-  displayName: 'Terraform plan & apply'
-  env:
-    AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-    AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-    AWS_SESSION_TOKEN: $(AWS_SESSION_TOKEN)
-    AWS_REGION: $(AWS_REGION)
+        steps:
+          - task: AWSCLI@1
+            displayName: 'Validate AWS OIDC Authentication'
+            inputs:
+              awsCredentials: 'aws-odic'
+              regionName: 'ap-south-1'
+              awsCommand: 'sts'
+              awsSubCommand: 'get-caller-identity'
